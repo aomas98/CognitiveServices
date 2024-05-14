@@ -13,6 +13,12 @@ namespace Hello
         public double AverageNeutral { get; set; }
     }
 
+
+    public class SentimentHdr
+    {
+        public string SpeakerId { get; set; }
+        public List<Sentiments> Sentiment { get; set; }
+    }
     public class Sentiments
     {
         public string Key { get; set; }

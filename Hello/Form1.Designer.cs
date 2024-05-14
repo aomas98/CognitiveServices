@@ -37,6 +37,7 @@
             textBox3 = new TextBox();
             label2 = new Label();
             label3 = new Label();
+            flowLayoutPanel1 = new FlowLayoutPanel();
             SuspendLayout();
             // 
             // button1
@@ -51,10 +52,10 @@
             // 
             // textBox1
             // 
-            textBox1.Location = new Point(11, 59);
+            textBox1.Location = new Point(11, 84);
             textBox1.Multiline = true;
             textBox1.Name = "textBox1";
-            textBox1.Size = new Size(508, 540);
+            textBox1.Size = new Size(508, 794);
             textBox1.TabIndex = 1;
             // 
             // button2
@@ -93,7 +94,7 @@
             textBox2.Multiline = true;
             textBox2.Name = "textBox2";
             textBox2.ScrollBars = ScrollBars.Vertical;
-            textBox2.Size = new Size(437, 508);
+            textBox2.Size = new Size(437, 396);
             textBox2.TabIndex = 5;
             // 
             // textBox3
@@ -102,7 +103,7 @@
             textBox3.Multiline = true;
             textBox3.Name = "textBox3";
             textBox3.ScrollBars = ScrollBars.Vertical;
-            textBox3.Size = new Size(437, 515);
+            textBox3.Size = new Size(437, 790);
             textBox3.TabIndex = 6;
             // 
             // label2
@@ -125,11 +126,19 @@
             label3.Text = "Entity Recognition , Linking, Lang Detector , Stemming";
             label3.Click += label3_Click;
             // 
+            // flowLayoutPanel1
+            // 
+            flowLayoutPanel1.Location = new Point(527, 486);
+            flowLayoutPanel1.Name = "flowLayoutPanel1";
+            flowLayoutPanel1.Size = new Size(438, 388);
+            flowLayoutPanel1.TabIndex = 9;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1416, 604);
+            ClientSize = new Size(1424, 886);
+            Controls.Add(flowLayoutPanel1);
             Controls.Add(label3);
             Controls.Add(label2);
             Controls.Add(textBox3);
@@ -157,5 +166,6 @@
         private TextBox textBox3;
         private Label label2;
         private Label label3;
+        private FlowLayoutPanel flowLayoutPanel1;
     }
 }

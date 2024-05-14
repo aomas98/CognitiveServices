@@ -189,34 +189,62 @@ namespace Hello
 
         }
         List<System.Windows.Forms.ProgressBar> progressBars = new List<System.Windows.Forms.ProgressBar>();
-        //private void AddProgressBar(string Key)
-        //{
-        //    var SentimentsProgressBar = new List<Sentiments>();
-        //    foreach(var item in AggregateSpeakerSentiments)
-        //    {
-        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AveragePositive", Value = item.Value.AveragePositive });
-        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AverageNegative", Value = item.Value.AverageNegative });
-        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AverageNeutral", Value = item.Value.AverageNeutral });
-        //    }
+        private void AddProgressBar(string Key)
+        {
+            var SentimentsProgressBar = new List<SentimentHdr>();
+            foreach (var item in AggregateSpeakerSentiments)
+            {
+                SentimentsProgressBar.Add(new SentimentHdr()
+                {
+                    SpeakerId = item.Key,
+                    Sentiment = new List<Sentiments>()
+                    {
+                        new Sentiments() { Key = "AveragePositive", Value = item.Value.AveragePositive },
+                        new Sentiments() { Key = "AverageNegative", Value = item.Value.AverageNegative },
+                        new Sentiments() { Key = "AverageNeutral", Value = item.Value.AverageNeutral }
+                    }
+                });
+
+            }
 
 
-        //    foreach (var Sentiments in SentimentsProgressBar)
-        //    {
-        //        System.Windows.Forms.ProgressBar progressBar1 = new System.Windows.Forms.ProgressBar();
-        //        progressBar1.Name = Sentiments.Key + Key;
-        //        progressBar1.Width = flowLayoutPanel1.ClientSize.Width - 10;
-        //        progressBar1.Minimum = 0;
-        //        progressBar1.Maximum = 100;
-        //        progressBar1.Value = (int)(Sentiments.Value * 100);
-        //        progressBar1.Visible = true;
-        //        progressBars.Add(progressBar1);
-        //    }
+            foreach (var Sentiments in SentimentsProgressBar)
+            {
+                foreach (var sentiment in Sentiments.Sentiment)
+                {
+                    if (progressBars.Any(x => x.Name == Sentiments.SpeakerId + sentiment.Key))
+                    {
+                        var ProgressBar = progressBars.First(x => x.Name == Sentiments.SpeakerId + sentiment.Key);
+                        ProgressBar.Value = (int)(sentiment.Value * 100);
+                    }
+                    else
+                    {
+                        System.Windows.Forms.ProgressBar progressBar1 = new System.Windows.Forms.ProgressBar();
+                        progressBar1.Name = Sentiments.SpeakerId + sentiment.Key;
+                        progressBar1.Width = flowLayoutPanel1.ClientSize.Width - 10;
+                        progressBar1.Minimum = 0;
+                        progressBar1.Maximum = 100;
+                        progressBar1.Value = (int)(sentiment.Value * 100);
+                        progressBar1.Visible = true;
+                        progressBars.Add(progressBar1);
+                    }
+                }
+            }
 
-        //    foreach (var progressBar in progressBars)
-        //    {
-        //        flowLayoutPanel1.Controls.Add(progressBar);
-        //    }
-        //}
+            foreach (var progressBar in progressBars)
+            {
+                if (!flowLayoutPanel1.Controls.Contains(progressBar))
+                {
+
+                    flowLayoutPanel1.Controls.Add(new System.Windows.Forms.Label
+                    {
+                        Text = progressBar.Name,
+                        Width = flowLayoutPanel1.ClientSize.Width - 10
+                    });
+                    flowLayoutPanel1.Controls.Add(progressBar);
+                }
+            }
+        }
         private void DisplaySentimentAnalysis(string speakerId)
         {
 
@@ -259,7 +287,7 @@ namespace Hello
                 textBox2.Text = string.Empty;
 
             }));
-     
+
             foreach (var item in AggregateSpeakerSentiments)
             {
                 string sentimentText = Environment.NewLine + Environment.NewLine + $"Speaker ID:{item.Key}" + Environment.NewLine +
@@ -270,6 +298,7 @@ namespace Hello
                 // Output sentiment analysis to TextBox2
                 Invoke(new Action(() =>
                 {
+                    AddProgressBar(item.Key);
                     textBox2.Text += sentimentText;
                     textBox2.SelectionStart = textBox2.Text.Length;
                     textBox2.ScrollToCaret();
