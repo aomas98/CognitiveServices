@@ -1,54 +1,75 @@
 using Microsoft.CognitiveServices.Speech.Audio;
 using Microsoft.CognitiveServices.Speech.Transcription;
 using Microsoft.CognitiveServices.Speech;
+using Azure;
+using Azure.AI.TextAnalytics;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace Hello
 {
+
     public partial class Form1 : Form
     {
-        private CancellationTokenSource cancellationTokenSource;
-
+        private CancellationTokenSource cancellationTokenSource; // code to cancel 
         TaskCompletionSource<int> stopRecognition = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Dictionary to store sentiment scores by speaker
+        private Dictionary<string, List<DocumentSentiment>> speakerSentiments = new Dictionary<string, List<DocumentSentiment>>();
+        private Dictionary<string, Sentiment> AggregateSpeakerSentiments = new Dictionary<string, Sentiment>();
         public Form1()
         {
             InitializeComponent();
         }
+
         static string speechKey = "02eefff4efa440878779c8a6dec1690f";
         static string speechRegion = "southeastasia";
 
+        // Added key for text analytics start
+        private static readonly AzureKeyCredential textAnalyticsCredentials = new AzureKeyCredential("33e902f506ed4c1f865a7e3df472dab2");
+        private static readonly Uri textAnalyticsEndpoint = new Uri("https://crap-textanalytics.cognitiveservices.azure.com/");
+        // Added key for text analytics end
+
         async Task Transcribe(CancellationToken cancellationToken)
         {
-            var filepath = "katiesteve.wav";
             var speechConfig = SpeechConfig.FromSubscription(speechKey, speechRegion);
             speechConfig.SpeechRecognitionLanguage = "en-US";
-            // Create an audio stream from a wav file or from the default microphone
-            using (var audioConfig = AudioConfig.FromDefaultMicrophoneInput())
+
+            using (var audioConfig = AudioConfig.FromDefaultMicrophoneInput()) // gets from default microphone , add code to add other devices
             {
-                // Create a conversation transcriber using audio stream input
                 using (var conversationTranscriber = new ConversationTranscriber(speechConfig, audioConfig))
                 {
                     conversationTranscriber.Transcribing += (s, e) =>
                     {
                         Invoke(new Action(() =>
                         {
-                            textBox1.Text += " \r\n" + e.Result.Text;
-                            textBox1.SelectionStart = textBox1.Text.Length;
-                            textBox1.ScrollToCaret();
+                            // textBox1.Text += " \r\n" + e.Result.Text;
+                            // textBox1.SelectionStart = textBox1.Text.Length;
+                            // textBox1.ScrollToCaret();
                         }));
-                        Console.WriteLine($"TRANSCRIBING: Text={e.Result.Text}");
+                        // Console.WriteLine($"TRANSCRIBING: Text={e.Result.Text}"); // to be removed
                     };
 
                     conversationTranscriber.Transcribed += (s, e) =>
                     {
                         if (e.Result.Reason == ResultReason.RecognizedSpeech)
                         {
-                            Console.WriteLine($"TRANSCRIBED: Text={e.Result.Text} Speaker ID={e.Result.SpeakerId}");
+                            Console.WriteLine($"TRANSCRIBED: Text={e.Result.Text} Speaker ID={e.Result.SpeakerId}"); //Transcribed
+
                             Invoke(new Action(() =>
                             {
                                 textBox1.Text += $"TRANSCRIBED: Text={e.Result.Text} Speaker ID={e.Result.SpeakerId}" + " \r\n";
                                 textBox1.SelectionStart = textBox1.Text.Length;
                                 textBox1.ScrollToCaret();
                             }));
+
+                            // Analyze transcribed text with Text Analytics and store the sentiment
+                            AnalyzeTextWithTextAnalytics(e.Result.Text, e.Result.SpeakerId);
                         }
                         else if (e.Result.Reason == ResultReason.NoMatch)
                         {
@@ -90,11 +111,8 @@ namespace Hello
             // and exit the method if cancellation has been requested
             if (cancellationToken.IsCancellationRequested)
             {
-
                 return;
             }
-
-            // ...
         }
 
         private async void button1_Click(object sender, EventArgs e)
@@ -110,7 +128,6 @@ namespace Hello
             stopRecognition = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             // Pass the cancellation token to the Transcribe method
             await Task.Run(() => Transcribe(cancellationTokenSource.Token));
-
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -126,7 +143,6 @@ namespace Hello
                 cancellationTokenSource.Cancel();
                 // Stop the stopRecognition task
                 stopRecognition.TrySetResult(0);
-
             }
         }
 
@@ -140,6 +156,214 @@ namespace Hello
             lblStatus.Visible = false;
             label1.Visible = false;
             textBox1.ScrollBars = ScrollBars.Vertical;
+        }
+
+        private void AnalyzeTextWithTextAnalytics(string text, string speakerId)
+        {
+            // Initialize Text Analytics client
+            var client = new TextAnalyticsClient(textAnalyticsEndpoint, textAnalyticsCredentials);
+
+            // Sentiment analysis
+            if (!string.IsNullOrEmpty(text) && !string.IsNullOrEmpty(speakerId))
+            {
+                DocumentSentiment documentSentiment = client.AnalyzeSentiment(text);
+                // Store the sentiment by speaker
+                if (!speakerSentiments.ContainsKey(speakerId))
+                {
+                    speakerSentiments[speakerId] = new List<DocumentSentiment>();
+                }
+                speakerSentiments[speakerId].Add(documentSentiment);
+
+                // Display the sentiment analysis
+                DisplaySentimentAnalysis(speakerId);
+
+                // Perform additional text analysis and display results
+                DisplayLanguageDetection(client, text);
+                DisplayEntityRecognition(client, text);
+                DisplayEntityLinking(client, text);
+                DisplayKeyPhraseExtraction(client, text);
+
+            }
+
+
+
+        }
+        List<System.Windows.Forms.ProgressBar> progressBars = new List<System.Windows.Forms.ProgressBar>();
+        //private void AddProgressBar(string Key)
+        //{
+        //    var SentimentsProgressBar = new List<Sentiments>();
+        //    foreach(var item in AggregateSpeakerSentiments)
+        //    {
+        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AveragePositive", Value = item.Value.AveragePositive });
+        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AverageNegative", Value = item.Value.AverageNegative });
+        //        SentimentsProgressBar.Add(new Sentiments() { Key = "AverageNeutral", Value = item.Value.AverageNeutral });
+        //    }
+
+
+        //    foreach (var Sentiments in SentimentsProgressBar)
+        //    {
+        //        System.Windows.Forms.ProgressBar progressBar1 = new System.Windows.Forms.ProgressBar();
+        //        progressBar1.Name = Sentiments.Key + Key;
+        //        progressBar1.Width = flowLayoutPanel1.ClientSize.Width - 10;
+        //        progressBar1.Minimum = 0;
+        //        progressBar1.Maximum = 100;
+        //        progressBar1.Value = (int)(Sentiments.Value * 100);
+        //        progressBar1.Visible = true;
+        //        progressBars.Add(progressBar1);
+        //    }
+
+        //    foreach (var progressBar in progressBars)
+        //    {
+        //        flowLayoutPanel1.Controls.Add(progressBar);
+        //    }
+        //}
+        private void DisplaySentimentAnalysis(string speakerId)
+        {
+
+
+            if (!speakerSentiments.ContainsKey(speakerId))
+            {
+                return;
+            }
+
+            var sentiments = speakerSentiments[speakerId];
+            double averagePositive = 0;
+            double averageNegative = 0;
+            double averageNeutral = 0;
+
+            foreach (var sentiment in sentiments)
+            {
+                averagePositive += sentiment.ConfidenceScores.Positive;
+                averageNegative += sentiment.ConfidenceScores.Negative;
+                averageNeutral += sentiment.ConfidenceScores.Neutral;
+            }
+
+            int count = sentiments.Count;
+            averagePositive /= count;
+            averageNegative /= count;
+            averageNeutral /= count;
+
+
+            if (AggregateSpeakerSentiments.ContainsKey(speakerId))
+            {
+                AggregateSpeakerSentiments.Remove(speakerId);
+                AggregateSpeakerSentiments.Add(speakerId, new Sentiment() { AverageNegative = averageNegative, AverageNeutral = averageNeutral, AveragePositive = averagePositive });
+            }
+            else
+            {
+                AggregateSpeakerSentiments.Add(speakerId, new Sentiment() { AverageNegative = averageNegative, AverageNeutral = averageNeutral, AveragePositive = averagePositive });
+            }
+
+            Invoke(new Action(() =>
+            {
+                textBox2.Text = string.Empty;
+
+            }));
+     
+            foreach (var item in AggregateSpeakerSentiments)
+            {
+                string sentimentText = Environment.NewLine + Environment.NewLine + $"Speaker ID:{item.Key}" + Environment.NewLine +
+                         $"Average Positive Score: {item.Value.AveragePositive:0.00}\n" + Environment.NewLine +
+                         $"Average Negative Score: {item.Value.AverageNegative:0.00}\n" + Environment.NewLine +
+                         $"Average Neutral Score: {item.Value.AverageNeutral:0.00}\n" + Environment.NewLine;
+
+                // Output sentiment analysis to TextBox2
+                Invoke(new Action(() =>
+                {
+                    textBox2.Text += sentimentText;
+                    textBox2.SelectionStart = textBox2.Text.Length;
+                    textBox2.ScrollToCaret();
+                }));
+
+            }
+
+
+        }
+
+        private void DisplayLanguageDetection(TextAnalyticsClient client, string text)
+        {
+            DetectedLanguage detectedLanguage = client.DetectLanguage(text);
+            string languageText = Environment.NewLine + "_______________________________________________" + Environment.NewLine + $"Language: {detectedLanguage.Name}, ISO-6391: {detectedLanguage.Iso6391Name}" + Environment.NewLine;
+
+            Invoke(new Action(() =>
+            {
+                textBox3.Text += languageText;
+                textBox3.SelectionStart = textBox3.Text.Length;
+                textBox3.ScrollToCaret();
+            }));
+        }
+
+        private void DisplayEntityRecognition(TextAnalyticsClient client, string text)
+        {
+            var response = client.RecognizeEntities(text);
+            string entitiesText = "Named Entities: " + Environment.NewLine;
+            foreach (var entity in response.Value)
+            {
+                entitiesText += $"\tText: {entity.Text}, Category: {entity.Category}, Sub-Category: {entity.SubCategory}" + Environment.NewLine +
+                                $"\t\tScore: {entity.ConfidenceScore:F2}" + Environment.NewLine;
+            }
+
+            Invoke(new Action(() =>
+            {
+                textBox3.Text += entitiesText;
+                textBox3.SelectionStart = textBox3.Text.Length;
+                textBox3.ScrollToCaret();
+            }));
+        }
+
+        private void DisplayEntityLinking(TextAnalyticsClient client, string text)
+        {
+            var response = client.RecognizeLinkedEntities(text);
+            string linkedEntitiesText = "Linked Entities: " + Environment.NewLine;
+            foreach (var entity in response.Value)
+            {
+                linkedEntitiesText += $"\tName: {entity.Name}, ID: {entity.DataSourceEntityId}, URL: {entity.Url}, Data Source: {entity.DataSource}\n" +
+                                      "\tMatches:\n";
+                foreach (var match in entity.Matches)
+                {
+                    linkedEntitiesText += $"\t\tText: {match.Text}\n" +
+                                          $"\t\tScore: {match.ConfidenceScore:F2}\n";
+                }
+            }
+
+            Invoke(new Action(() =>
+            {
+                textBox3.Text += linkedEntitiesText;
+                textBox3.SelectionStart = textBox3.Text.Length;
+                textBox3.ScrollToCaret();
+            }));
+        }
+
+        private void DisplayKeyPhraseExtraction(TextAnalyticsClient client, string text)
+        {
+            var response = client.ExtractKeyPhrases(text);
+            string keyPhrasesText = "Key Phrases: " + Environment.NewLine;
+            foreach (string keyphrase in response.Value)
+            {
+                keyPhrasesText += $"\t{keyphrase}" + Environment.NewLine;
+            }
+
+            Invoke(new Action(() =>
+            {
+                textBox3.Text += keyPhrasesText;
+                textBox3.SelectionStart = textBox3.Text.Length;
+                textBox3.ScrollToCaret();
+            }));
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void flowLayoutPanel1_Paint(object sender, PaintEventArgs e)
+        {
+
         }
     }
 }
